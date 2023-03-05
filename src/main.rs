@@ -4,9 +4,15 @@ use std::{
 };
 
 use anyhow::{Context, Result};
+use comrak::{markdown_to_html, ComrakOptions};
 
 fn main() -> Result<()> {
-    get_files("./posts")?;
+    let files = get_files("./posts")?;
+    for file in files {
+        let contents = fs::read_to_string(file)?;
+        let result = markdown_to_html(&contents, &ComrakOptions::default());
+        println!("{result}")
+    }
     Ok(())
 }
 
