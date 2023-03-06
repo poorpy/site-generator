@@ -9,3 +9,4 @@ edition = "2021"
 anyhow = "1.0.69"
 comrak = "0.16.0"
 handlebars = { version = "3", features = ["dir_source"] }
+thiserror = "1.0.39"
