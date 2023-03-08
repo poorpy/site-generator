@@ -7,6 +7,9 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.69"
+clap = { version = "4.1.8", features = ["derive"] }
 comrak = "0.16.0"
+env_logger = "0.10.0"
 handlebars = { version = "3", features = ["dir_source"] }
+log = "0.4.17"
 thiserror = "1.0.39"
