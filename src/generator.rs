@@ -6,6 +6,8 @@ use std::{
 };
 
 use comrak::{markdown_to_html, ComrakOptions};
+use handlebars::{Handlebars, RenderError, TemplateFileError};
+use serde_json::json;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -20,23 +22,47 @@ pub enum GeneratorError {
     InvalidUnicode(PathBuf),
     #[error("file read failed")]
     IoError(#[from] io::Error),
+    #[error("failed to register templates directory")]
+    TemplateDirError(#[from] Box<TemplateFileError>),
+    #[error("failed to render handlebars template")]
+    TemplateRenderError(#[from] Box<RenderError>),
 }
 
-pub struct Generator {
+impl From<TemplateFileError> for GeneratorError {
+    // clippy complained about size of unboed TemplateFileError variant
+    fn from(value: TemplateFileError) -> Self {
+        Self::from(Box::new(value))
+    }
+}
+
+impl From<RenderError> for GeneratorError {
+    fn from(value: RenderError) -> Self {
+        Self::from(Box::new(value))
+    }
+}
+
+pub struct Generator<'a> {
     notes: Vec<Note>,
     output_dir: PathBuf,
+    handlebars: Handlebars<'a>,
 }
 
-impl Generator {
+impl<'a> Generator<'a> {
     pub fn new(
         notes_dir: impl AsRef<Path>,
         output_dir: impl AsRef<Path>,
+        template_dir: impl AsRef<Path>,
     ) -> Result<Self, GeneratorError> {
+        let mut handlebars = Handlebars::new();
+        handlebars.set_strict_mode(true);
+        handlebars.register_templates_directory(".hbs", template_dir)?;
+
         Ok(Self {
             notes: fs::read_dir(notes_dir)?
                 .map(|entry| Note::open(entry?.path()))
                 .collect::<Result<Vec<Note>, GeneratorError>>()?,
             output_dir: output_dir.as_ref().into(),
+            handlebars,
         })
     }
 
@@ -47,7 +73,15 @@ impl Generator {
 
             output.set_extension("html");
 
-            fs::write(output, markdown)?;
+            let data = json!({
+                "note": {
+                    "contents": markdown,
+                },
+            });
+
+            let data = self.handlebars.render("note", &data)?;
+
+            fs::write(output, data)?;
         }
 
         Ok(())
