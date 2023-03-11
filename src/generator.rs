@@ -3,10 +3,13 @@ use std::{
     ffi::OsStr,
     fs, io,
     path::{Path, PathBuf},
+    process::Command,
+    str::{self, Utf8Error},
 };
 
 use comrak::{markdown_to_html, ComrakOptions};
 use handlebars::{Handlebars, RenderError, TemplateFileError};
+use log::{error, info};
 use serde_json::json;
 use thiserror::Error;
 
@@ -20,8 +23,10 @@ pub enum GeneratorError {
     MissingFilename(PathBuf),
     #[error("this path is not valid unicode: {0}")]
     InvalidUnicode(PathBuf),
-    #[error("file read failed")]
+    #[error("io operation failed")]
     IoError(#[from] io::Error),
+    #[error("subprocess output contained invalid utf-8")]
+    Utf8Error(#[from] Utf8Error),
     #[error("failed to register templates directory")]
     TemplateDirError(#[from] Box<TemplateFileError>),
     #[error("failed to render handlebars template")]
@@ -67,6 +72,22 @@ impl<'a> Generator<'a> {
     }
 
     pub fn render(&self) -> Result<(), GeneratorError> {
+        info!("generating css with tailwind ...");
+
+        let mut command: Command = Command::new("tailwind");
+        command.args(["-i", "./tailwind/input.css", "-o", "./output/output.css"]);
+
+        let output = command.output()?;
+
+        if !output.status.success() {
+            error!(
+                "command {command:?} failed with error:\n{}",
+                str::from_utf8(&output.stderr)?
+            );
+        }
+
+        info!("done");
+
         for note in self.notes.iter() {
             let markdown = markdown_to_html(&note.contents, &ComrakOptions::default());
             let mut output = self.output_dir.as_path().join(note.filename.as_str());
