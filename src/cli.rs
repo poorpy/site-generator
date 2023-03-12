@@ -21,4 +21,6 @@ pub struct Args {
 pub enum Commands {
     /// Generate html files from md notes
     Generate,
+    /// Watch for changes and rebuild as needed
+    Watch,
 }

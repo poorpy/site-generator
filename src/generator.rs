@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 use std::{
     ffi::OsStr,
-    fs, io,
+    fs::{self, File},
+    io,
     path::{Path, PathBuf},
     process::Command,
     str::{self, Utf8Error},
@@ -72,6 +73,14 @@ impl<'a> Generator<'a> {
     }
 
     pub fn render(&self) -> Result<(), GeneratorError> {
+        for note in self.notes.iter() {
+            self.render_note(note)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn generate_css(&self) -> Result<(), GeneratorError> {
         info!("generating css with tailwind ...");
 
         let mut command: Command = Command::new("tailwind");
@@ -88,24 +97,35 @@ impl<'a> Generator<'a> {
 
         info!("done");
 
-        for note in self.notes.iter() {
-            let markdown = markdown_to_html(&note.contents, &ComrakOptions::default());
-            let mut output = self.output_dir.as_path().join(note.filename.as_str());
+        Ok(())
+    }
 
-            output.set_extension("html");
+    pub fn render_path(&self, path: impl AsRef<Path>) -> Result<(), GeneratorError> {
+        let path = path.as_ref();
 
-            let data = json!({
-                "note": {
-                    "contents": markdown,
-                },
-            });
-
-            let data = self.handlebars.render("note", &data)?;
-
-            fs::write(output, data)?;
-        }
+        let note = Note::open(path)?;
+        info!("rendering file: {}", note.filename);
+        self.render_note(&note)?;
 
         Ok(())
+    }
+
+    fn render_note(&self, note: &Note) -> Result<(), GeneratorError> {
+        let output = self
+            .output_dir
+            .as_path()
+            .join(&note.filename)
+            .with_extension("html");
+
+        let output = File::create(output)?;
+
+        let data = json!({
+            "note": {
+                "contents": markdown_to_html(&note.contents, &ComrakOptions::default()),
+            },
+        });
+
+        Ok(self.handlebars.render_to_write("note", &data, output)?)
     }
 }
 
