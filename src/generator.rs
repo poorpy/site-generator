@@ -104,7 +104,7 @@ impl<'a> Generator<'a> {
         let path = path.as_ref();
 
         let note = Note::open(path)?;
-        info!("rendering file: {}", note.filename);
+        info!("rendering file: {path:?}");
         self.render_note(&note)?;
 
         Ok(())

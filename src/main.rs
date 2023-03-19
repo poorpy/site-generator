@@ -9,9 +9,8 @@ use std::{fs, path::Path};
 use anyhow::{Context, Result};
 use clap::Parser;
 use cli::Args;
-use log::{debug, error, info};
-use notify::INotifyWatcher;
-use notify::RecursiveMode;
+use log::{debug, error};
+use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 
 use crate::cli::Commands;
@@ -66,9 +65,8 @@ fn new_watcher(args: &Args) -> Result<Debouncer<INotifyWatcher>> {
         None,
         move |res: DebounceEventResult| match res {
             Ok(events) => {
-                info!("events: {:#?}", events);
+                debug!("events: {:#?}", events);
                 for event in events {
-                    info! {"{:?}", event.path}
                     if let Err(e) = gen.render_path(event.path) {
                         error!("render error: {:?}", e);
                     }
