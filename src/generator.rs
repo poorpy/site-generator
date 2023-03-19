@@ -4,8 +4,6 @@ use std::{
     fs::{self, File},
     io,
     path::{Path, PathBuf},
-    process::Command,
-    str::{self, Utf8Error},
 };
 
 use comrak::{markdown_to_html, ComrakOptions};
@@ -26,8 +24,6 @@ pub enum GeneratorError {
     InvalidUnicode(PathBuf),
     #[error("io operation failed")]
     IoError(#[from] io::Error),
-    #[error("subprocess output contained invalid utf-8")]
-    Utf8Error(#[from] Utf8Error),
     #[error("failed to register templates directory")]
     TemplateDirError(#[from] Box<TemplateFileError>),
     #[error("failed to render handlebars template")]
@@ -76,26 +72,6 @@ impl<'a> Generator<'a> {
         for note in self.notes.iter() {
             self.render_note(note)?;
         }
-
-        Ok(())
-    }
-
-    pub fn generate_css(&self) -> Result<(), GeneratorError> {
-        info!("generating css with tailwind ...");
-
-        let mut command: Command = Command::new("tailwind");
-        command.args(["-i", "./tailwind/input.css", "-o", "./output/output.css"]);
-
-        let output = command.output()?;
-
-        if !output.status.success() {
-            error!(
-                "command {command:?} failed with error:\n{}",
-                str::from_utf8(&output.stderr)?
-            );
-        }
-
-        info!("done");
 
         Ok(())
     }

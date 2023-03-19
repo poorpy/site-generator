@@ -28,6 +28,7 @@ fn main() -> Result<()> {
 
     match args.command {
         Commands::Generate => {
+            css::generate_css("./tailwind/input.css", "./output/output.css")?;
             Generator::new(args.notes, args.output, "templates")
                 .context("failed to create new generator")?
                 .render()
