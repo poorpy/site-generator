@@ -103,8 +103,8 @@ impl<'a> Generator<'a> {
     pub fn render_path(&self, path: impl AsRef<Path>) -> Result<(), GeneratorError> {
         let path = path.as_ref();
 
-        let note = Note::open(path)?;
         info!("rendering file: {path:?}");
+        let note = Note::open(path)?;
         self.render_note(&note)?;
 
         Ok(())
