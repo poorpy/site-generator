@@ -40,6 +40,10 @@ impl<'a> Watcher<'a> {
                             if let Err(e) = self.generator.update_template(&path) {
                                 error!("Failed to update templates: {}", e);
                             }
+
+                            if let Err(e) = self.generator.render() {
+                                error!("Failed to render notes: {}", e);
+                            }
                         }
                         Err(e) => error!("Failed to receive template: {}", e),
                     }

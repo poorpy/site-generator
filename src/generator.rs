@@ -44,7 +44,7 @@ impl From<RenderError> for GeneratorError {
 }
 
 pub struct Generator<'a> {
-    notes: Vec<Note>,
+    notes_dir: PathBuf,
     output_dir: PathBuf,
     handlebars: Handlebars<'a>,
 }
@@ -60,19 +60,19 @@ impl<'a> Generator<'a> {
         handlebars.register_templates_directory(".hbs", template_dir)?;
 
         Ok(Self {
-            notes: fs::read_dir(notes_dir)?
-                .map(|entry| Note::open(entry?.path()))
-                .collect::<Result<Vec<Note>, GeneratorError>>()?,
+            notes_dir: notes_dir.as_ref().into(),
             output_dir: output_dir.as_ref().into(),
             handlebars,
         })
     }
 
     pub fn render(&self) -> Result<(), GeneratorError> {
-        for note in self.notes.iter() {
-            self.render_note(note)?;
+        for entry in fs::read_dir(&self.notes_dir)? {
+            let entry = entry?;
+            info!("rendering file: {:?}", entry.path());
+            let note = Note::open(entry.path())?;
+            self.render_note(&note)?;
         }
-
         Ok(())
     }
 
@@ -107,13 +107,14 @@ impl<'a> Generator<'a> {
     pub fn update_template(&mut self, path: impl AsRef<Path>) -> Result<(), GeneratorError> {
         let path = path.as_ref();
 
-        info!("updating template: {path:?}");
-
+        // templates are registered without extension so we are using file_stem instead of file_name
         let name = path
-            .file_name()
+            .file_stem()
             .ok_or(GeneratorError::MissingFilename(path.into()))?
             .to_str()
             .ok_or(GeneratorError::InvalidUnicode(path.into()))?;
+
+        info!("updating template: {name:?}");
 
         self.handlebars.register_template_file(name, path)?;
 
