@@ -103,6 +103,22 @@ impl<'a> Generator<'a> {
 
         Ok(self.handlebars.render_to_write("note", &data, output)?)
     }
+
+    pub fn update_template(&mut self, path: impl AsRef<Path>) -> Result<(), GeneratorError> {
+        let path = path.as_ref();
+
+        info!("updating template: {path:?}");
+
+        let name = path
+            .file_name()
+            .ok_or(GeneratorError::MissingFilename(path.into()))?
+            .to_str()
+            .ok_or(GeneratorError::InvalidUnicode(path.into()))?;
+
+        self.handlebars.register_template_file(name, path)?;
+
+        Ok(())
+    }
 }
 
 struct Note {

@@ -1,14 +1,16 @@
 mod cli;
 mod css;
 mod generator;
+mod watcher;
 
+use std::path::PathBuf;
 use std::process::exit;
 use std::time::Duration;
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};
 use clap::Parser;
-use cli::Args;
+use crossbeam::channel::Sender;
 use log::{debug, error};
 use notify::{INotifyWatcher, RecursiveMode};
 use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
@@ -40,12 +42,27 @@ fn main() -> Result<()> {
                 tailwind.kill().unwrap();
                 exit(0)
             })?;
-            let mut watcher = new_watcher(&args)?;
-            loop {
-                watcher
-                    .watcher()
-                    .watch(Path::new(&args.notes), RecursiveMode::Recursive)?;
-            }
+            let (s1, r1) = crossbeam::channel::unbounded();
+
+            let mut notes_debouncer = new_debounced_watcher(s1)?;
+            notes_debouncer
+                .watcher()
+                .watch(&args.notes, RecursiveMode::Recursive)?;
+
+            let (s2, r2) = crossbeam::channel::unbounded();
+            let mut templates_debouncer = new_debounced_watcher(s2)?;
+            templates_debouncer
+                .watcher()
+                .watch(Path::new("templates"), RecursiveMode::Recursive)?;
+
+            let mut watcher = watcher::Watcher::new(
+                Generator::new(args.notes, args.output, "templates")
+                    .context("failed to create new generator")?,
+                r1,
+                r2,
+            );
+
+            watcher.watch();
         }
     }
 
@@ -59,8 +76,7 @@ fn create_dir(path: impl AsRef<Path>) -> Result<()> {
     Ok(())
 }
 
-fn new_watcher(args: &Args) -> Result<Debouncer<INotifyWatcher>> {
-    let gen = Generator::new(&args.notes, &args.output, "templates")?;
+fn new_debounced_watcher(writer: Sender<PathBuf>) -> Result<Debouncer<INotifyWatcher>> {
     Ok(new_debouncer(
         Duration::from_secs(1),
         None,
@@ -68,9 +84,7 @@ fn new_watcher(args: &Args) -> Result<Debouncer<INotifyWatcher>> {
             Ok(events) => {
                 debug!("events: {:#?}", events);
                 for event in events {
-                    if let Err(e) = gen.render_path(event.path) {
-                        error!("render error: {:?}", e);
-                    }
+                    writer.send(event.path).unwrap();
                 }
             }
             Err(e) => error!("watch error: {:?}", e),
